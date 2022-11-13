@@ -17,15 +17,15 @@ int RED = 11;
 //input
 int JS_X = A1;
 int JS_Y = A2;
-int JS_Button = 13;
+int JS_Button = 12;
 int DHC = A0;
 
 //global variables for logic
 int humidity = 0;
 int temp = 0;
-int setTemp = 75;
+int setTemp = 15;
 int hum = 0;
-int setHum = 30;
+int setHum = 130;
 int off = 0;
 int i = 0;
 typedef struct task {
@@ -37,10 +37,10 @@ typedef struct task {
 } task;
 
 int delay_gcd;
-const unsigned short tasksNum = 8;
+const unsigned short tasksNum = 9;
 task tasks[tasksNum];
-enum Off_States { OFF_INIT, S0};
 
+enum Off_States { OFF_INIT, S0};
 //turns machine on off;
 int Off_Tick(int state1) {
   switch (state1) { // State transitions
@@ -48,7 +48,16 @@ int Off_Tick(int state1) {
         state1 = S0;
         break;
     case S0:
-        if(digitalRead(JS_Button) == 1){
+        
+        state1 = S0;
+        break;   
+  }
+  switch (state1) { // State Action
+    case S0:
+        unsigned int btn = digitalRead(JS_Button);
+        //Serial.println(off);
+        if(btn == 0){
+          //Serial.println(off);
             if(off == 0){    //glorified !off
                 off = 1;
             }
@@ -56,10 +65,6 @@ int Off_Tick(int state1) {
                 off = 0;
             }
         }
-        break;   
-  }
-  switch (state1) { // State Action
-    case S0:
         break;
   }
   return state1;
@@ -87,8 +92,10 @@ int UP_Tick(int state2) {
         }
         else if(yval < 500){
             humidity = 1;
+            Serial.print(humidity);
         }
         else if(yval > 600){
+            Serial.print(humidity);
             humidity = 0;
         }
         state2 = S1;
@@ -107,7 +114,9 @@ int UP_Tick(int state2) {
 //does the setTemperature joystick logic
 enum ST_States { ST_INIT, O1, N1, Base1, Wait11, Wait12};
 int ST_Tick(int state3) {
+  int xval = analogRead(JS_X);
   switch (state3) { // State transitions
+    
     case ST_INIT:
         state3 = O1;
         break;
@@ -131,24 +140,24 @@ int ST_Tick(int state3) {
         }
         break;
     case Base1:
-        int xval = analogRead(JS_X);
+        
         if(off == 0){
             state3 = O1;
         }
         else if(humidity == 1){
             state3 = N1;
         }
-        else if(xval >600){
-            setTemp +=1;
+        else if(xval > 600){
+            setTemp = setTemp + 1;
             state3 = Wait11;
         }
-        else if(xval < 500){
-            setTemp = setTemp -1;
+        else if(xval < 450){
+            setTemp = setTemp - 1;
             state3 = Wait12;
         }
         break;
     case Wait11:
-        int xval = analogRead(JS_X);
+        //int xvalss = analogRead(JS_X);
         if(xval <600){
             state3 = Base1;
         }
@@ -157,7 +166,7 @@ int ST_Tick(int state3) {
         }
         break;
     case Wait12:
-        int xval = analogRead(JS_X);
+        //int xval2 = analogRead(JS_X);
         if(xval > 500){
             state3 = Base1;
         }
@@ -186,6 +195,7 @@ int ST_Tick(int state3) {
 //does the joycon setHumidity portion
 enum SH_States { SH_INIT, O2, N2, Base2, Wait21, Wait22};
 int SH_Tick(int state4) {
+  int xvals = analogRead(JS_X);
   switch (state4) { // State transitions
     case SH_INIT:
         state4 = O2;
@@ -210,7 +220,6 @@ int SH_Tick(int state4) {
         }
         break;
     case Base2:
-        int xvals = analogRead(JS_X);
         if(off == 0){
             state4 = O2;
         }
@@ -218,16 +227,16 @@ int SH_Tick(int state4) {
             state4 = N2;
         }
         else if(xvals >600){
-            setTemp +=1;
+            setHum = setHum + 1;
             state4 = Wait21;
         }
-        else if(xvals < 500){
-            setTemp = setTemp -1;
+        else if(xvals < 450){
+            setHum = setHum -1;
             state4 = Wait22;
         }
         break;
     case Wait21:
-        int xvals = analogRead(JS_X);
+        //int xvals2 = analogRead(JS_X);
         if(xvals <600){
             state4 = Base2;
         }
@@ -236,7 +245,7 @@ int SH_Tick(int state4) {
         }
         break;
     case Wait22:
-        int xvals = analogRead(JS_X);
+        //int xvals3 = analogRead(JS_X);
         if(xvals > 500){
             state4 = Base2;
         }
@@ -283,7 +292,10 @@ int DHCT_Tick(int state5) {
         else{
             state5 = DT;
         }
-        temp = dht.readTemperature(true);
+        int tempTemp = dht.readTemperature(true);
+        if(!isnan(tempTemp)){
+          temp = tempTemp;
+        }        
         break;
   }
   switch (state5) { // State Action
@@ -311,13 +323,20 @@ int DHCH_Tick(int state6) {
         }
         break;
     case DH:
-        if(off == 0)[
+        if(off == 0){
             state6 = O4;
-        ]
+        }
         else{
             state6 = DH;
         }
-        hum = dht.readHumidity();
+        
+        int tempHum = dht.readHumidity();        
+        if(!isnan(tempHum)){
+          hum = tempHum;
+        }
+        if(isnan(hum)){
+          hum = 0;
+        }
         break;
   }
   switch (state6) { // State Action
@@ -343,13 +362,15 @@ int TOut_Tick(int state7) {
         }
         else{
             state7 = O5;
-        }
+        }       
         break;
     case N3:
         if(off == 0){
             state7 = O5;
+            //Serial.print("hello");
         }
         else if(setTemp > temp){
+            
             state7 = hON;
             i = 0;
         }
@@ -361,7 +382,7 @@ int TOut_Tick(int state7) {
             state7 = N3;
         }
         break;
-    case hON:
+    case hON:      
         if(off == 0){
             state7 = O5;
             i =0;
@@ -379,6 +400,7 @@ int TOut_Tick(int state7) {
         }
         break;
     case hOFF:
+//Serial.print("Hello");
         if(off == 0){
             state7 = O5;
             i = 0;
@@ -432,6 +454,8 @@ int TOut_Tick(int state7) {
   }
   switch (state7) { // State Action
     case O5:
+        digitalWrite(white, LOW);
+        digitalWrite(RED, LOW);    
         break;
     case N3:
         digitalWrite(white, LOW);
@@ -439,11 +463,11 @@ int TOut_Tick(int state7) {
         break;
     case hON:
         i++;
-        digitalWrite(RED, HIGH);
+        digitalWrite(11, HIGH);
         break;
     case hOFF:
         i++;
-        digitalWrite(RED, LOW);
+        digitalWrite(11, LOW);
         break;
     case cON:
         i++;
@@ -451,7 +475,7 @@ int TOut_Tick(int state7) {
         break;
     case cOFF:
         i++;
-        digialWrite(white, LOW);
+        digitalWrite(white, LOW);
         break;
   }
   return state7;
@@ -534,7 +558,7 @@ int HOut_Tick(int state8) {
         else if(i < 10){
             state8 = dON;
         }
-        else if(i > 10){
+        else if(i >= 10){
             state8 = dOFF;
             i = 0;
         }
@@ -559,6 +583,8 @@ int HOut_Tick(int state8) {
   }
   switch (state8) { // State Action
     case O6:
+        digitalWrite(blue, LOW);
+        digitalWrite(yellow, LOW);
         break;
     case N4:
         digitalWrite(blue, LOW);
@@ -578,7 +604,7 @@ int HOut_Tick(int state8) {
         break;
     case dOFF:
         i++;
-        digialWrite(yellow, LOW);
+        digitalWrite(yellow, LOW);
         break;
   }
   return state8; 
@@ -603,24 +629,35 @@ int LS_Tick(int state9){
         case S2:
             if(off == 0){
                 state9 = O7;
+            } else{
+              state9 = S2;
             }
-            state9 = S2;
             break;
     }
     switch (state9){
         case O7:
             lcd.noDisplay();
+            break;
         case S2:
+            lcd.display();
             lcd.clear();
             lcd.setCursor(0,0);
-            string l1 = "SetTemp:" + setTemp + "*F SetHumidity:" + setHum + "%";
-            lcd.print(l1);
-            string l2 = "CurTemp:" + temp + "*F CurHumidity:" + hum + "%";
+            //string l1 = "SetTemp:" + setTemp + "*F SetHumidity:" + setHum + "%";
+            lcd.print("ST:");
+            lcd.print(setTemp);
+            lcd.print("*F SH:");
+            lcd.print(setHum);
+            lcd.print("%");
+            
             lcd.setCursor(0,1);
-            lcd.print(l2);
+            lcd.print("CT:");
+            lcd.print(temp);
+            lcd.print("*F CH:");
+            lcd.print(hum);
+            lcd.print("%");
             break;
     }
-    return state9
+    return state9;
 }
 
 void setup() {
@@ -632,9 +669,9 @@ void setup() {
   pinMode(yellow, OUTPUT);
   pinMode(white, OUTPUT);
   pinMode(RED, OUTPUT);
-
+  
   //setup inputs;
-  pinMode(JS_Button, INPUT);
+  pinMode(JS_Button, INPUT_PULLUP);  
   //set up state machine
   unsigned char i = 0;
   
